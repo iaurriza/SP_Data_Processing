@@ -71,39 +71,6 @@ def polarity_list(mrow):
         output_list[2] = mrow['graphics_polarity']
     # print(output_list)
     return output_list
-# #OLD
-# input_columns = ['gameId','AccountName','review','classifications']
-# input_compilation = pd.DataFrame([],columns=input_columns)
-# input_compilation = input_compilation.append(pd.DataFrame({"gameId":audio_data['gameId'],
-#                                         'AccountName':audio_data['AccountName'],
-#                                         'review':audio_data['review'],
-#                                         'classifications': [['audio'] for i in range(0,audio_data.shape[0])]
-#                                         }))
-# input_compilation = input_compilation.append(pd.DataFrame({"gameId":graphics_data['gameId'],
-#                                         'AccountName':graphics_data['AccountName'],
-#                                         'review':graphics_data['review'],
-#                                         'classifications': [['graphics'] for i in range(0,graphics_data.shape[0])]
-#                                         }))
-# input_compilation = input_compilation.append(pd.DataFrame({"gameId":gameplay_data['gameId'],
-#                                         'AccountName':gameplay_data['AccountName'],
-#                                         'review':gameplay_data['review'],
-#                                         'classifications': [['gameplay'] for i in range(0,gameplay_data.shape[0])]
-#                                         }))
-
-
-# md_classification_list = []
-# for i in range(0,multi_data.shape[0]):
-#     md_classification_list.append(classification_list(multi_data.iloc[i]))
-
-
-# input_compilation = input_compilation.append(pd.DataFrame({"gameId":multi_data['gameId'],
-#                                         'AccountName':multi_data['AccountName'],
-#                                         'review':multi_data['review'],
-#                                         'classifications': md_classification_list
-#                                         }))
-# input_compilation = input_compilation.reset_index()
-# input_compilation = input_compilation.drop(columns=['index'])
-
 #------------------------------------------------------------------------------------------------------------------------------
 #NEW
 input_columns = ['gameId','AccountName','review','classifications','polarity']
@@ -127,8 +94,7 @@ input_compilation = input_compilation.append(pd.DataFrame({"gameId":gameplay_dat
                                         'polarity':list([-2,i,-2] for i in gameplay_data["Polarity"])
                                         }))
 
-# print(input_compilation.head(10))
-
+# print(input_compilation)
 
 md_classification_list = []
 md_polarity_list = []
@@ -145,23 +111,17 @@ input_compilation = input_compilation.append(pd.DataFrame({"gameId":multi_data['
 input_compilation = input_compilation.reset_index()
 input_compilation = input_compilation.drop(columns=['index'])
 
-# print(input_compilation.tail(10))
-
 #------------------------------------------------------------------------------------------------------------------------------
-# print(input_compilation.classifications)
-
-
-# for i,j in zip(multi_data['is_audio'],multi_data['audio_polarity']): print (i,j)
-
-
-
 multilabel_binarizer = MultiLabelBinarizer()
 multilabel_binarizer.fit(input_compilation.classifications)
 review_output = multilabel_binarizer.transform(input_compilation.classifications)
+
+# print(review_output)
+# print(list(multilabel_binarizer.classes_))
+
 review_output = list([i,j] for i,j in zip(review_output,input_compilation['polarity']))
 # print(multilabel_binarizer.classes_)
 # review_output = input_compilation.classifications
-
 
 review_list = input_compilation['review'].tolist()
 
@@ -198,12 +158,6 @@ for sentence in review_list:
 						# --------Training - Test Split------------
 
 data_train, data_test, label_train, label_test = train_test_split(stemmed_review_list, review_output, test_size = 0.3, random_state = 7)
-# # print(len(data_train))
-# # print(len(data_test))
-# #					--------------------------------------------
-# for i,j in zip(data_train,label_train):
-#     print(j[0])
-#     print(i)
 
 # #						------------Vectorization----------------
 category_tf = TfidfVectorizer(ngram_range=(1,1))
@@ -212,21 +166,11 @@ category_tf.fit(data_train)
 data_train_tf	= category_tf.transform(data_train)
 data_test_tf	= category_tf.transform(data_test)
 
-
-# print(len(data_train))
-# print(len(data_test))
-# # print(tf.get_feature_names())
 # #						----------------------------------------------
+
 # #					------------ Model---------------------
 
 # #					----------------Category Classification------------------------
-#TEMP
-# print(label_train.tolist())
-# category_lsvc = CalibratedClassifierCV(LinearSVC(multi_class='ovr'))
-# category_lsvc = MultinomialNB()
-# print(data_train_tf.shape)
-# print(label_train.shape)
-#
 
 category_lsvc = OneVsRestClassifier(CalibratedClassifierCV(LinearSVC()))
 category_lsvc.fit(data_train_tf,list(i[0] for i in label_train))
@@ -235,11 +179,6 @@ category_probability = category_lsvc.predict_proba(data_test_tf)
 
 
 #Setting Threshold
-
-
-
-
-
 def is_over_threshold(threshold,input_list):
     label_types = np.array([0,0,0])
     if input_list[0] > threshold:
@@ -248,24 +187,15 @@ def is_over_threshold(threshold,input_list):
         label_types[1] = 1
     if input_list[2] > threshold:    
        label_types[2] = 1
-    # if len(label_types) == 0:
-    #     label_types.append(0)
     return label_types
 
-# print(np.sum(test_list[0]))
-# print(len(test_list[0]))
 
-
-
+# Tests
 def compute_sub_accuracy(label,output):
     test_list = np.hsplit(label,3)
     output_list = np.hsplit(np.array(output),3)
-
-    # print(output_list)
-    # label_1_total = np.sum(test_list[0])
-    # label_2_total = np.sum(test_list[1])
-    # label_3_total = np.sum(test_list[2])
-
+    print()
+    print("Sub accuracy")
     for i in range(0,3):
         x_list = test_list[i]
         y_list = output_list[i]
@@ -273,22 +203,13 @@ def compute_sub_accuracy(label,output):
         accuracy  = (tp + tn)/ (tp+tn+fp+fn)
         precision = (tp) / (tp + fp)
         recall    = (tp) / (tp + fn)        
-        # print("Label {}".format(i+1))
         if (i+1) == 1: 
-            print("Audio Accuracy: {} Precision: {}".format(round(accuracy,4),round(precision,4)))
+            print("Audio    \t Accuracy: {} \tPrecision: {} \t Recall: {}".format(round(accuracy,4),round(precision,4),round(recall,4)))
         elif (i+1) == 2:
-            print("Gameplay Accuracy: {} Precision: {}".format(round(accuracy,4),round(precision,4)))
+            print("Gameplay \t Accuracy: {} \tPrecision: {} \t Recall: {}".format(round(accuracy,4),round(precision,4),round(recall,4)))
         elif (i+1) == 3:
-            print("Graphics Accuracy: {} Precision: {}".format(round(accuracy,4),round(precision,4)))
-        # print("True Positive: {}".format(tp))
-        # print("True Negative: {}".format(tn))
-        # print("False Positive: {}".format(fp))    
-        # print("False Negative: {}".format(fn))
-    #     print("Total: {}".format(tp + tn + fp + fn))
-    # print(label_1_total)
-    # print(label_2_total)
-    # print(label_3_total)
-    # print(len(label))
+            print("Graphics \t Accuracy: {} \tPrecision: {} \t Recall: {}".format(round(accuracy,4),round(precision,4),round(recall,4)))
+
 
 def print_testing():
     category_label_test = np.array(list(i[0] for i in label_test))
@@ -297,18 +218,17 @@ def print_testing():
         output_labels = []
         for i in category_probability: 
             output_labels.append(is_over_threshold(temp_treshold,i))
-        # for x,y in zip(category_label_test,output_labels): print(x,y)
         
         # print("-------------------------")
         print("Treshold: {}".format(temp_treshold))
         print("Accuracy: {}".format(round(accuracy_score(category_label_test,output_labels),4)))
         print("Hamming Loss: {}".format(round(hamming_loss(category_label_test,output_labels),4)))
         compute_sub_accuracy(category_label_test,output_labels)
+        print()
 
-# print_testing()
-var_threshold = .3
-
+print_testing()
 # data_test
+var_threshold = .3
 category_label_test = np.array(list(i[0] for i in label_test))
 pol_label_test = np.array(list(i[0] for i in label_test))
 output_labels = []
@@ -323,9 +243,8 @@ test_gameplay_passed_pol = []
 
 test_graphics_passed_text = [] 
 test_graphics_passed_pol = [] 
-# for i in pol_label_test:
-#     print(i)
-# print("lol")
+
+
 for i,j,k,l in zip(data_test,category_label_test,output_labels,pol_label_test):
     if(j[0] == k[0] == 1):
         test_audio_passed_text.append(i)
@@ -370,19 +289,7 @@ for i,j in zip(data_train,label_train):
         graphics_data_2_text.append(i)
         graphics_data_2_polarity.append(temp_polarity[2])
 
-# for i in graphics_data_2_polarity:
-#     print(i)
 
-#Printer
-# def print_pair(temp_list,polarity):
-#     for i,j in zip(temp_list,polarity):
-#         print(j)
-#         print(i)
-#     print()
-# print_pair(audio_data_2_text,audio_data_2_polarity)
-# print_pair(gameplay_data_2_text,gameplay_data_2_polarity)
-# print_pair(graphics_data_2_text,graphics_data_2_polarity)
-# #					------------------
 
 # #						------------Import Successful from category classification----------------
 
@@ -438,45 +345,57 @@ def pol_output(pred_output,label):
         print("{} {}".format(key,value))
         
 
-# for i in test_audio_passed_pol:
-#     print(i)
 
 #Audio
 pol_audio_lsvc = CalibratedClassifierCV(LinearSVC(multi_class='ovr'))
 pol_audio_lsvc.fit(pol_audio_test_tf,audio_data_2_polarity)
-print("Audio Polarity")
-print(pol_audio_lsvc.score(pol_audio_tf.transform(test_audio_passed_text),test_audio_passed_pol))
+# print("Audio Polarity")
+# print(pol_audio_lsvc.score(pol_audio_tf.transform(test_audio_passed_text),test_audio_passed_pol))
 pol_audio_output = pol_audio_lsvc.predict(pol_audio_tf.transform(test_audio_passed_text))
 # pol_output(pol_audio_output,test_audio_passed_pol)
 #Gameplay
 pol_gameplay_lsvc = CalibratedClassifierCV(LinearSVC(multi_class='ovr'))
 pol_gameplay_lsvc.fit(pol_gameplay_test_tf,gameplay_data_2_polarity)
-print("Gameplay Polarity")
-print(pol_gameplay_lsvc.score(pol_gameplay_tf.transform(test_gameplay_passed_text),test_gameplay_passed_pol))
+# print("Gameplay Polarity")
+# print(pol_gameplay_lsvc.score(pol_gameplay_tf.transform(test_gameplay_passed_text),test_gameplay_passed_pol))
 pol_gameplay_output = pol_gameplay_lsvc.predict(pol_gameplay_tf.transform(test_gameplay_passed_text))
 # pol_output(pol_gameplay_output,test_gameplay_passed_pol)
 
 #Graphics
 pol_graphics_lsvc = CalibratedClassifierCV(LinearSVC(multi_class='ovr'))
 pol_graphics_lsvc.fit(pol_graphics_test_tf,graphics_data_2_polarity)
-print("Graphics Polarity")
-print(pol_graphics_lsvc.score(pol_graphics_tf.transform(test_graphics_passed_text),test_graphics_passed_pol))
+# print("Graphics Polarity")
+# print(pol_graphics_lsvc.score(pol_graphics_tf.transform(test_graphics_passed_text),test_graphics_passed_pol))
 pol_graphics_output = pol_graphics_lsvc.predict(pol_graphics_tf.transform(test_graphics_passed_text))
 # pol_output(pol_graphics_output,test_graphics_passed_pol)
 
 
 
-print("TRAIN")
-train_list = np.hsplit(np.array(list(i[1] for i in label_train)),3)
-count_output(train_list[0])
-count_output(train_list[1])
-count_output(train_list[2])
-print()
-print("TEST")
-output_list = np.hsplit(np.array(list(i[1] for i in label_test)),3)
-count_output(output_list[0])
-count_output(output_list[1])
-count_output(output_list[2])
+# print("TRAIN")
+# train_list = np.hsplit(np.array(list(i[1] for i in label_train)),3)
+# count_output(train_list[0])
+# count_output(train_list[1])
+# count_output(train_list[2])
+# count_has_negative = 0
+# for i in list(i[1] for i in label_train):
+#     for j in i:
+#         if j == -1:
+#             count_has_negative += 1
+#             break
+# print(count_has_negative)
+# print("TEST")
+# output_list = np.hsplit(np.array(list(i[1] for i in label_test)),3)
+# count_output(output_list[0])
+# count_output(output_list[1])
+# count_output(output_list[2])
+# count_has_negative = 0
+# for i in list(i[1] for i in label_test):
+#     for j in i:
+#         if j == -1:
+#             count_has_negative += 1
+#             break
+        # print(j)
+# print(count_has_negative)
 
 # count_output(test_audio_passed_pol)
 # print()
